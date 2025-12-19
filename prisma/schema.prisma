@@ -10,4 +10,69 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Add your models here
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum ResourceType {
+  VIDEO
+  REPO
+}
+
+enum SwipeAction {
+  LEFT
+  RIGHT
+  SAVE
+}
+
+// =============================================================================
+// MODELS
+// =============================================================================
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  preferences Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  swipes Swipe[]
+
+  @@index([email])
+}
+
+model Resource {
+  id           String       @id @default(cuid())
+  title        String
+  type         ResourceType
+  url          String
+  thumbnailUrl String?
+  duration     String?      // e.g., "12:34" for videos, null for repos
+  metadata     Json         @default("{}") // stars, description, etc.
+  qualityScore Float        @default(0.0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  swipes Swipe[]
+
+  @@index([type])
+  @@index([qualityScore])
+  @@index([createdAt])
+}
+
+model Swipe {
+  id         String      @id @default(cuid())
+  userId     String
+  resourceId String
+  action     SwipeAction
+  createdAt  DateTime    @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resource Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, resourceId]) // User can only swipe a resource once
+  @@index([userId])
+  @@index([resourceId])
+  @@index([action])
+  @@index([createdAt])
+}
