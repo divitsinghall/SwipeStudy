@@ -230,6 +230,7 @@ function CommitmentSlider({ value, onChange }: CommitmentSliderProps) {
 export default function OnboardingPage() {
     const router = useRouter();
     const [userId, setUserId] = useState<string | null>(null);
+    const [isLoadingUser, setIsLoadingUser] = useState(true);
     const [step, setStep] = useState(0);
     const [direction, setDirection] = useState(0);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -250,12 +251,15 @@ export default function OnboardingPage() {
                 setUserId(user.id);
             } catch (error) {
                 console.error('Failed to load user:', error);
+            } finally {
+                setIsLoadingUser(false);
             }
         }
         loadUser();
     }, []);
 
     const canProceed = () => {
+        if (isLoadingUser || !userId) return false;
         if (step === 0) return selectedTopics.length > 0;
         if (step === 1) return selectedLevel !== null;
         if (step === 2) return weeklyHours >= 1;
