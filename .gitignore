@@ -52,3 +52,9 @@ logs/
 
 # OS
 Thumbs.db
+
+# turbo
+.turbo
+
+# cache
+.cache/

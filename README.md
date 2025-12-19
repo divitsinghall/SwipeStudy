@@ -14,10 +14,9 @@ A high-performance, swipe-based learning path generator built with Next.js 14, f
 
 ---
 
-## 📱 Phase 1: Core Mechanics
+## 📱 Features
 
-### What's Implemented
-
+### Phase 1: Core Mechanics
 - ✅ **Swipe Physics Engine** - Rubber-banding, velocity detection, rotation transforms
 - ✅ **SwipeCard Component** - Glassmorphism, directional glow, adaptive shadows  
 - ✅ **SwipeDeck Orchestrator** - Card stacking, z-index management, smooth transitions
@@ -25,31 +24,38 @@ A high-performance, swipe-based learning path generator built with Next.js 14, f
 - ✅ **Server Actions** - Resource fetching, swipe recording
 - ✅ **Database Schema** - User, Resource, Swipe models with heavy indexing
 
-### Swipe Physics Configuration
+### Phase 2: The Intelligence Loop
+- ✅ **Apple-Style Onboarding** - Multi-step wizard with AnimatePresence animations
+- ✅ **Topic Selection** - Choose from React, System Design, Rust, Algo Trading
+- ✅ **Level-Based Content** - Beginner, Intermediate, Advanced difficulty filtering
+- ✅ **YouTube Integration** - Real API or high-fidelity mock data fallback
+- ✅ **Playlist Generation** - Swipe right to save resources to your path
+- ✅ **Timeline View** - Visual week-by-week learning schedule
+- ✅ **Dynamic Week Calculation** - Instant recomputation on commitment changes
 
-The swipe behavior is fully tunable via the `SwipePhysicsConfig` interface:
+---
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `stiffness` | 300 | Spring tension - higher = snappier return |
-| `damping` | 25 | Spring resistance - higher = slower movement |
-| `velocityThreshold` | 500 | Min velocity (px/s) for flick detection |
-| `distanceThreshold` | 100 | Min distance (px) for drag detection |
-| `rotationFactor` | 0.1 | Rotation per pixel (max ±15°) |
-| `glowThreshold` | 50 | Distance (px) before glow appears |
+## 🔄 Phase 2: Data Flow
 
-To customize physics, pass a `physics` prop to `SwipeCard`:
-
-```tsx
-<SwipeCard
-  resource={resource}
-  onSwipe={handleSwipe}
-  physics={{
-    stiffness: 400,    // Snappier
-    damping: 30,       // More resistance
-    velocityThreshold: 400, // Easier to flick
-  }}
-/>
+```mermaid
+graph TD
+    A[User] -->|Visits /| B{Onboarding Complete?}
+    B -->|No| C[/onboarding]
+    B -->|Yes| D[/feed]
+    C -->|Select Topics| E[Goals Saved]
+    C -->|Select Level| E
+    C -->|Set Hours| E
+    E -->|Complete| D
+    D -->|Load Resources| F[getRecommendedBatch]
+    F -->|Filter by Goals/Level| G[YouTube Service]
+    G -->|API Key?| H{Check ENV}
+    H -->|Yes| I[YouTube API v3]
+    H -->|No| J[Mock Data 50+]
+    I --> K[Filtered Resources]
+    J --> K
+    D -->|Swipe Right| L[addToPlaylist]
+    L -->|Save| M[/playlist]
+    M -->|Adjust Hours| N[Dynamic Week Recalc]
 ```
 
 ---
@@ -85,8 +91,8 @@ npx prisma generate
 # Push schema to database
 npx prisma db push
 
-# Seed with sample data
-npx tsx scripts/seed_phase1.ts
+# Or run migrations
+npx prisma migrate dev
 ```
 
 ### Development
@@ -100,29 +106,45 @@ npm run dev
 
 ---
 
+## 🔑 YouTube API Setup (Optional)
+
+The app works without a YouTube API key using high-fidelity mock data. To enable real YouTube search:
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select existing
+3. Enable **YouTube Data API v3**
+4. Create credentials (API Key)
+5. Add to your `.env`:
+
+```env
+YOUTUBE_API_KEY=your_api_key_here
+```
+
+> **Note**: Without an API key, the app uses 48+ curated mock resources across all topics.
+
+---
+
 ## 📁 Project Structure
 
 ```
 swipestudy/
 ├── app/
-│   ├── actions.ts          # Server Actions
-│   ├── globals.css         # Global styles, animations
-│   ├── layout.tsx          # Root layout
-│   └── page.tsx            # Main swipe interface
+│   ├── page.tsx            # Entry point (redirect logic)
+│   ├── onboarding/         # Multi-step onboarding wizard
+│   ├── feed/               # Swipe deck with real data
+│   └── playlist/           # Timeline view with week grouping
+├── actions/
+│   ├── feed.ts             # getRecommendedBatch, addToPlaylist
+│   └── onboarding.ts       # completeOnboarding, getOrCreateUser
 ├── components/
-│   └── swipe-deck/
-│       ├── SwipeCard.tsx   # Core card with physics
-│       ├── SwipeDeck.tsx   # Deck orchestrator
-│       └── index.ts        # Barrel exports
+│   └── swipe-deck/         # SwipeCard, SwipeDeck components
 ├── lib/
-│   ├── db/
-│   │   └── prisma.ts       # Prisma client singleton
-│   └── stores/
-│       └── useSwipeDeck.ts # Zustand store
+│   ├── db/                 # Prisma client singleton
+│   ├── services/
+│   │   └── youtube.ts      # YouTube API + mock data
+│   └── stores/             # Zustand stores
 ├── prisma/
 │   └── schema.prisma       # Database schema
-├── scripts/
-│   └── seed_phase1.ts      # Data seeding script
 └── types/
     └── index.ts            # TypeScript definitions
 ```
@@ -135,57 +157,61 @@ swipestudy/
 2. **Visual Feedback** - Directional glow, rotation, and shadow depth provide instant feedback
 3. **Zero Layout Shifts** - Pre-loaded cards, fixed aspect ratios, GPU-accelerated transforms
 4. **Mobile Native** - Touch-optimized, safe-area aware, full-bleed design
+5. **Dynamic Calculations** - Week numbers computed on render, not stored in DB
 
 ---
 
 ## 📝 Database Schema
 
-### Models
+### Phase 2 Models
 
 ```prisma
-model Resource {
-  id           String       @id
-  title        String
-  type         ResourceType // VIDEO | REPO
-  url          String
-  thumbnailUrl String?
-  duration     String?
-  metadata     Json
-  qualityScore Float
-  swipes       Swipe[]
+model User {
+  id                  String     @id
+  email               String     @unique
+  onboardingCompleted Boolean    @default(false)
+  goals               String[]
+  level               Difficulty @default(BEGINNER)
+  weeklyHours         Int        @default(5)
+  swipes              Swipe[]
+  playlists           Playlist[]
 }
 
-model Swipe {
-  id         String      @id
-  userId     String
+model Playlist {
+  id     String         @id
+  userId String
+  title  String
+  items  PlaylistItem[]
+}
+
+model PlaylistItem {
+  id         String     @id
+  playlistId String
   resourceId String
-  action     SwipeAction // LEFT | RIGHT | SAVE
+  order      Int
+  status     ItemStatus // TODO | IN_PROGRESS | DONE
 }
 ```
 
-### Indexes
-
-- `Resource.type` - Filter by content type
-- `Resource.qualityScore` - Sort by quality
-- `Swipe.userId` - User history lookups
-- `Swipe.resourceId` - Resource analytics
+> **Key Decision**: `weekNumber` is NOT stored in the database. It's calculated dynamically on the frontend, enabling instant UI updates when users adjust their weekly commitment.
 
 ---
 
 ## 🔮 Roadmap
-
-### Phase 2: Learning Paths
-- [ ] AI-generated learning sequences
-- [ ] Topic clustering
-- [ ] Progress tracking
 
 ### Phase 3: Social Features
 - [ ] Share saved resources
 - [ ] Community curated decks
 - [ ] Study groups
 
+### Phase 4: AI Enhancement
+- [ ] Smart recommendations based on learning style
+- [ ] Progress analytics
+- [ ] Spaced repetition integration
+
 ---
 
 ## 📄 License
 
 MIT © SwipeStudy
+

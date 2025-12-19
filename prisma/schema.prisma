@@ -25,6 +25,18 @@ enum SwipeAction {
   SAVE
 }
 
+enum Difficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum ItemStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
 // =============================================================================
 // MODELS
 // =============================================================================
@@ -36,7 +48,14 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  swipes Swipe[]
+  // Phase 2: Onboarding fields
+  onboardingCompleted Boolean    @default(false)
+  goals               String[]
+  level               Difficulty @default(BEGINNER)
+  weeklyHours         Int        @default(5)
+
+  swipes    Swipe[]
+  playlists Playlist[]
 
   @@index([email])
 }
@@ -53,11 +72,18 @@ model Resource {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
-  swipes Swipe[]
+  // Phase 2: Extended fields
+  tags            String[]
+  difficulty      Difficulty @default(BEGINNER)
+  durationMinutes Int        @default(0)
+
+  swipes        Swipe[]
+  playlistItems PlaylistItem[]
 
   @@index([type])
   @@index([qualityScore])
   @@index([createdAt])
+  @@index([difficulty])
 }
 
 model Swipe {
@@ -76,3 +102,38 @@ model Swipe {
   @@index([action])
   @@index([createdAt])
 }
+
+// =============================================================================
+// PHASE 2: PLAYLIST MODELS
+// =============================================================================
+
+model Playlist {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items PlaylistItem[]
+
+  @@index([userId])
+}
+
+model PlaylistItem {
+  id         String     @id @default(cuid())
+  playlistId String
+  resourceId String
+  order      Int
+  status     ItemStatus @default(TODO)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  resource Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@unique([playlistId, resourceId])
+  @@index([playlistId])
+  @@index([status])
+}
+
