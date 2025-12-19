@@ -1,17 +1,17 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, ChevronLeft, Sparkles, Check } from 'lucide-react';
-import { completeOnboarding } from '@/actions/onboarding';
+import { completeOnboarding, getOrCreateUser } from '@/actions/onboarding';
 import { AVAILABLE_TOPICS, LEVEL_LABELS, Difficulty, OnboardingData } from '@/types';
 
 // =============================================================================
-// MOCK USER ID (For development without auth)
+// MOCK USER EMAIL (For development without auth)
 // =============================================================================
 
-const MOCK_USER_ID = 'demo-user-001';
+const MOCK_USER_EMAIL = 'demo@swipestudy.app';
 
 // =============================================================================
 // ANIMATION VARIANTS
@@ -229,6 +229,7 @@ function CommitmentSlider({ value, onChange }: CommitmentSliderProps) {
 
 export default function OnboardingPage() {
     const router = useRouter();
+    const [userId, setUserId] = useState<string | null>(null);
     const [step, setStep] = useState(0);
     const [direction, setDirection] = useState(0);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -240,6 +241,19 @@ export default function OnboardingPage() {
 
     const totalSteps = 3;
     const progress = ((step + 1) / totalSteps) * 100;
+
+    // Fetch user on mount
+    useEffect(() => {
+        async function loadUser() {
+            try {
+                const user = await getOrCreateUser(MOCK_USER_EMAIL);
+                setUserId(user.id);
+            } catch (error) {
+                console.error('Failed to load user:', error);
+            }
+        }
+        loadUser();
+    }, []);
 
     const canProceed = () => {
         if (step === 0) return selectedTopics.length > 0;
@@ -254,6 +268,10 @@ export default function OnboardingPage() {
             setStep((s) => s + 1);
         } else {
             // Submit onboarding
+            if (!userId) {
+                console.error('No user ID available');
+                return;
+            }
             setIsSubmitting(true);
             try {
                 const data: OnboardingData = {
@@ -261,7 +279,7 @@ export default function OnboardingPage() {
                     level: selectedLevel!,
                     weeklyHours,
                 };
-                const result = await completeOnboarding(MOCK_USER_ID, data);
+                const result = await completeOnboarding(userId, data);
                 if (result.success) {
                     router.push('/feed');
                 } else {
@@ -273,7 +291,7 @@ export default function OnboardingPage() {
                 setIsSubmitting(false);
             }
         }
-    }, [step, selectedTopics, selectedLevel, weeklyHours, router]);
+    }, [step, selectedTopics, selectedLevel, weeklyHours, router, userId]);
 
     const handleBack = useCallback(() => {
         if (step > 0) {

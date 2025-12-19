@@ -14,14 +14,14 @@ import {
     ChevronDown
 } from 'lucide-react';
 import { getUserPlaylist, updatePlaylistItemStatus } from '@/actions/feed';
-import { updateWeeklyHours } from '@/actions/onboarding';
+import { updateWeeklyHours, getOrCreateUser } from '@/actions/onboarding';
 import { PlaylistItem, PlaylistItemWithWeek, calculateWeeksForPlaylist, ItemStatus } from '@/types';
 
 // =============================================================================
-// MOCK USER ID (For development without auth)
+// MOCK USER EMAIL (For development without auth)
 // =============================================================================
 
-const MOCK_USER_ID = 'demo-user-001';
+const MOCK_USER_EMAIL = 'demo@swipestudy.app';
 
 // =============================================================================
 // STATUS ICON COMPONENT
@@ -89,10 +89,10 @@ function PlaylistItemCard({ item, isLast, onStatusChange }: PlaylistItemCardProp
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 className={`flex-1 p-4 rounded-2xl bg-white/5 border transition-all ${item.status === 'DONE'
-                        ? 'border-emerald-500/30 opacity-60'
-                        : item.status === 'IN_PROGRESS'
-                            ? 'border-amber-500/30'
-                            : 'border-white/10'
+                    ? 'border-emerald-500/30 opacity-60'
+                    : item.status === 'IN_PROGRESS'
+                        ? 'border-amber-500/30'
+                        : 'border-white/10'
                     }`}
             >
                 <a
@@ -113,8 +113,8 @@ function PlaylistItemCard({ item, isLast, onStatusChange }: PlaylistItemCardProp
                                     {resource.durationMinutes || 15} min
                                 </span>
                                 <span className={`px-2 py-0.5 rounded-full text-[10px] ${resource.difficulty === 'BEGINNER' ? 'bg-emerald-500/20 text-emerald-400' :
-                                        resource.difficulty === 'INTERMEDIATE' ? 'bg-amber-500/20 text-amber-400' :
-                                            'bg-rose-500/20 text-rose-400'
+                                    resource.difficulty === 'INTERMEDIATE' ? 'bg-amber-500/20 text-amber-400' :
+                                        'bg-rose-500/20 text-rose-400'
                                     }`}>
                                     {resource.difficulty}
                                 </span>
@@ -194,6 +194,7 @@ function WeekGroup({ weekNumber, items, onStatusChange }: WeekGroupProps) {
 
 export default function PlaylistPage() {
     const router = useRouter();
+    const [userId, setUserId] = useState<string | null>(null);
     const [items, setItems] = useState<PlaylistItem[]>([]);
     const [weeklyHours, setWeeklyHoursState] = useState(5);
     const [isLoading, setIsLoading] = useState(true);
@@ -203,7 +204,12 @@ export default function PlaylistPage() {
         async function loadPlaylist() {
             try {
                 setIsLoading(true);
-                const playlist = await getUserPlaylist(MOCK_USER_ID);
+                // Get user first
+                const user = await getOrCreateUser(MOCK_USER_EMAIL);
+                setUserId(user.id);
+                setWeeklyHoursState(user.weeklyHours);
+                // Load playlist
+                const playlist = await getUserPlaylist(user.id);
                 if (playlist) {
                     setItems(playlist.items);
                 }
@@ -245,8 +251,10 @@ export default function PlaylistPage() {
 
     const handleWeeklyHoursChange = useCallback(async (hours: number) => {
         setWeeklyHoursState(hours);
-        await updateWeeklyHours(MOCK_USER_ID, hours);
-    }, []);
+        if (userId) {
+            await updateWeeklyHours(userId, hours);
+        }
+    }, [userId]);
 
     // Loading state
     if (isLoading) {

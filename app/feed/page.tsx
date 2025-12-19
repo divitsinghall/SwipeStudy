@@ -5,15 +5,16 @@ import { useRouter } from 'next/navigation';
 import { SwipeDeck } from '@/components/swipe-deck';
 import { Resource } from '@/types';
 import { getRecommendedBatch, addToPlaylist } from '@/actions/feed';
+import { getOrCreateUser } from '@/actions/onboarding';
 import { recordSwipe } from '@/app/actions';
 import { Loader2, BookOpen, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // =============================================================================
-// MOCK USER ID (For development without auth)
+// MOCK USER EMAIL (For development without auth)
 // =============================================================================
 
-const MOCK_USER_ID = 'demo-user-001';
+const MOCK_USER_EMAIL = 'demo@swipestudy.app';
 
 // =============================================================================
 // TOAST NOTIFICATION
@@ -50,6 +51,7 @@ function Toast({ message, isVisible }: ToastProps) {
 
 export default function FeedPage() {
     const router = useRouter();
+    const [userId, setUserId] = useState<string | null>(null);
     const [resources, setResources] = useState<Resource[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -64,7 +66,11 @@ export default function FeedPage() {
         async function loadResources() {
             try {
                 setIsLoading(true);
-                const batch = await getRecommendedBatch(MOCK_USER_ID);
+                // Get user first
+                const user = await getOrCreateUser(MOCK_USER_EMAIL);
+                setUserId(user.id);
+                // Then fetch resources
+                const batch = await getRecommendedBatch(user.id);
                 setResources(batch);
             } catch (err) {
                 console.error('Failed to load resources:', err);
@@ -78,23 +84,24 @@ export default function FeedPage() {
     }, []);
 
     const handleSwipe = useCallback(async (resource: Resource, direction: 'left' | 'right') => {
+        if (!userId) return;
         console.log(`[Feed] Swiped ${direction} on: ${resource.title}`);
 
         // Record the swipe
         await recordSwipe({
-            userId: MOCK_USER_ID,
+            userId: userId,
             resourceId: resource.id,
             action: direction === 'right' ? 'RIGHT' : 'LEFT',
         });
 
         // If swiped right, add to playlist
         if (direction === 'right') {
-            const result = await addToPlaylist(MOCK_USER_ID, resource.id);
+            const result = await addToPlaylist(userId, resource.id);
             if (result.success) {
                 showToast('✓ Saved to your path');
             }
         }
-    }, [showToast]);
+    }, [showToast, userId]);
 
     const handleEmpty = useCallback(() => {
         console.log('[Feed] All cards reviewed!');
